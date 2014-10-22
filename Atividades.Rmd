@@ -1,0 +1,161 @@
+---
+title: "Reproducible Research: Peer Assessment 1"
+author: "Gustavo .I"
+date: "27 de agosto de 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warnings = TRUE)
+```
+
+```{r Library}
+
+library(tidyverse)
+library(ggplot2)
+library(pacman)
+
+```
+
+## Code for reading in the dataset and/or processing the data
+```{r echo=TRUE}
+#In my pc that is the path.
+Atividades <- read.csv2("./activity.csv", header = TRUE, sep = ",")
+
+```
+
+#or use then on your pc.
+```{r echo=TRUE}
+#Atividades <- read.csv2(file.choose(), header = TRUE, sep = ";", dec = ",")
+
+```
+```{r echo=TRUE}
+Atividades$date <- as.POSIXct(Atividades$date, "%Y-%m-%d")
+
+Semana <- weekdays(Atividades$date)
+Atividades <- cbind(Atividades,Semana)
+summary(Atividades)
+
+
+```
+
+
+## What is mean total number of steps taken per day?
+
+
+
+```{r echo=TRUE}
+Atividades_with_steps <- with(Atividades, aggregate(steps, by = list(date), na.rm = TRUE, FUN = sum ))
+names(Atividades_with_steps) <- c("data", "steps")
+
+hist(Atividades_with_steps$steps, main = "
+Número total de passos realizadas por dia", xlab = "Total de passos realizadas por dia
+", col = "gray", border = F, ylim = c(0,20), breaks = seq(0,25000, by=2500))
+
+```
+## What is the average daily activity pattern?
+
+
+
+
+```{r echo=TRUE}
+#another way of doing it using group_by and not the aggregate function
+
+Intervalo <-group_by(Atividades, interval)
+Media_intervalo_passos<-summarize(Intervalo,mean=mean(steps,na.rm=TRUE))
+DF_passos <-as.data.frame(Media_intervalo_passos)
+
+plot(Media_intervalo_passos$interval,Media_intervalo_passos$mean, lwd = 5, xlab = "Intervalo", ylab = "Medida dos passos", main =  "Media dos passos por intevalo", type="l", col = "purple")
+
+DF_passos$interval[which.max(DF_passos$mean)]
+
+
+```
+## Imputing missing values
+
+
+
+```{r echo=TRUE}
+#Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with \color{red}{\verb|NA|}NAs)
+
+sum(is.na(Intervalo$steps))
+
+```
+
+```{r echo=TRUE}
+#Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, 
+
+sem_na <- group_by(Atividades,interval)
+```
+```{r echo=TRUE}
+#Create a new dataset that is equal to the original dataset but with the missing data filled 
+
+Media_sem_na<-mutate(sem_na, Media=mean(steps,na.rm=TRUE),steps=replace(steps,which(is.na(steps)),first(Media)))
+
+total_Media_sem_na <- aggregate(steps ~ date, Media_sem_na, sum)
+
+Media_sem_na_df<-as.data.frame(Media_sem_na)
+
+names(total_Media_sem_na) <- c("date", "passos_dia")
+
+```
+
+```{r echo=TRUE}
+#Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+
+hist(total_Media_sem_na$passos_dia, col = topo.colors(10, alpha = 0.6), border = F, xlab = "Total de passos por dia", ylab = "Frequencia", ylim = c(0,30), main = "Total de passos realizados poe dia", breaks = seq(0,25000,by=2500))
+
+
+media <- mean(total_Media_sem_na$passos_dia)
+
+mediana <- median(total_Media_sem_na$passos_dia)
+
+Media_sem_na_df<- cbind(Media_sem_na_df, mediana)
+
+```
+
+```{r echo=TRUE}
+mean(total_Media_sem_na$passos_dia)
+
+
+
+```
+```{r echo=TRUE}
+median(total_Media_sem_na$passos_dia)
+
+```
+
+## Are there differences in activity patterns between weekdays and weekends?
+
+
+
+
+```{r echo=TRUE}
+
+#Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
+
+Atividades$date <- as.Date(strptime(Atividades$date, format="%Y-%m-%d"))
+Atividades$tdata <- sapply(Atividades$date, function(x) {
+        if (weekdays(x) == "sábado" | weekdays(x) =="domingo") 
+                {p <- "Weekend"} 
+              else 
+                {p <- "Weekday"}
+                 
+                p
+                 
+        })
+
+```
+
+```{r echo=TRUE}
+
+#Make a panel plot containing a time series plot (i.e. \color{red}{\verb|type = "l"|}type="l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). See the README file in the GitHub repository to see an example of what this plot should look like using simulated data.
+
+Atividades_data <- aggregate(steps~interval + tdata, Atividades, mean, na.rm = TRUE)
+plot<- ggplot(Atividades_data, aes(x = interval , y = steps, color = tdata)) +
+       geom_line() +
+       labs(title = "Media diaria de passos por data", x = "Intervalo", y = "Media de passos") +
+       facet_wrap(~tdata, ncol = 2, nrow=1)
+print(plot)
+
+```
